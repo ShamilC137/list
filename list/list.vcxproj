@@ -145,6 +145,9 @@
   <ItemGroup>
     <ClInclude Include="list.hpp" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="list_hpp_diagramm.cd" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

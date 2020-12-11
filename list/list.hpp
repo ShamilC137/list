@@ -8,6 +8,7 @@
 #include <utility>
 #include <new>
 #include <initializer_list>
+#include <limits>
 
 // Check for C++17
 #ifdef _HAS_CXX17
@@ -35,7 +36,7 @@ namespace my_lib
 	 */
 	
 	 // Probably there are also will be a unchecked iterators 
-	  
+
 	template <class MyList>
 	class list_const_iterator
 	{
@@ -103,9 +104,9 @@ namespace my_lib
 		{
 			head->prev_->next_ = nullptr; // deleting from first to nullptr
 
-			auto node = head->next;
+			auto node = head->next_;
 			for (nodeptr next; node; node = next) {
-				next = node->next;
+				next = node->next_;
 				free_node(allocator, node);
 			}
 		}
@@ -182,6 +183,31 @@ namespace my_lib
 			 const allocator_type& allocator = allocator_type{}) : list(allocator, list.size())
 		{
 			construct_range_unchecked(list.begin(), list.end());
+		}
+
+		~list() noexcept
+		{
+			if(head_ != nullptr)	node_type::free_all_nodes(allocator_, head_);
+		}
+
+	// Capacity
+	public:
+		[[nodiscard]] bool empty() const noexcept
+		{
+			return size_ == 0;
+		}
+
+		[[nodiscard]] size_type size() const noexcept
+		{
+			return size_;
+		}
+
+		[[nodiscard]] size_type max_size() const noexcept
+		{
+			auto diff_max = static_cast<size_type>(std::numeric_limits<difference_type>::max());
+			auto alnode_max = static_cast<size_type>(node_allocator_traits::max_size(allocator_));
+			if (diff_max < alnode_max) return diff_max;
+			return alnode_max;
 		}
 	};
 }

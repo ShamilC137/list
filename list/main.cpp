@@ -2,6 +2,7 @@
 #include <list>
 #include "list.hpp"
 #include <initializer_list>
+#include <vld.h>
 
 // Test structure
 struct A {
@@ -84,8 +85,7 @@ struct A {
 
 int main()
 {
-	my_lib::list<A> a{ 1, 2, 11, 11, 11, 11, 11, 11, 11  };
-	a.assing({ 3,4 ,56, 7 });
+	my_lib::list<A> a{ 1, 2, 3  };
 	for (auto&& el : a) {
 		std::cout << el << '\n';
 	}

@@ -23,6 +23,9 @@
     <ClInclude Include="list.hpp">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
+    <ClInclude Include="my_utilities.hpp">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="list_hpp_diagramm.cd">

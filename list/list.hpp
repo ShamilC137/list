@@ -10,6 +10,7 @@
 #include <initializer_list>
 #include <limits>
 #include <cassert>
+#include "my_utilities.hpp" // my custom library
 
 // Check for C++17
 #ifdef _HAS_CXX17
@@ -271,24 +272,31 @@ namespace my_lib
 	struct initializer_tag {};
 
 	/* Implemented:
-	|-----------------------------------|
-	|									|
+	-------------------------------------
 	|* Constructors:					|
 	| list()							|
 	| list(std::initializer_list<T>)	|
 	|* Destructor						|
-	|-----------------------------------|	
+	-------------------------------------	
 	
-	|-----------------------------------|
+	-------------------------------------
 	|* Member functions:				|
 	| operator=(const list&)			|
+	| operator=(list&&)					|
 	| operator=(std::initializer_list<T>|
+	| assign(size_type, const_reference)|
 	| assign(Iter, const Iter)			|
 	| assign(std::initializer_list<T>)	|
 	| get_allocator()					|
-	|-----------------------------------|
+	-------------------------------------
 	
-	|-----------------------------------|
+	-------------------------------------
+	|* Element access:					|
+	| front() (2 overloads)				|
+	| back() (2 overloads)				|
+	-------------------------------------
+
+	-------------------------------------
 	|* Iterators:						|
 	| begin() (2 overloads)				|
 	| end() (2 overloads)				|
@@ -298,21 +306,24 @@ namespace my_lib
 	| rend() (2 overloads)				|
 	| crbegin()							|
 	| crend()							|
-	|-----------------------------------|
+	-------------------------------------
 
-	|-----------------------------------|
+	-------------------------------------
 	|* Capacity:						|
 	| empty()							|
 	| size()							|
 	| max_size()						|				
-	|-----------------------------------|
+	-------------------------------------
+
+	-------------------------------------
+	|* Modifiers:						|
 	*/
 	// list_node head will store first element(next_) and last element(prev_) 
 	template <class T, class Alloc = std::allocator<T>>
 	class list
 	{
 		friend list_const_iterator<list<T, Alloc>>;
-		// type aliases
+	// type aliases
 	public:
 		// value type aliases
 		using value_type				= T;
@@ -339,13 +350,13 @@ namespace my_lib
 		using reverse_iterator			= std::reverse_iterator<iterator>;
 		using const_reverse_iterator	= std::reverse_iterator<const_iterator>;
 
-		// list data
+	// list data
 	private:
 		node_allocator_type allocator_;
 		nodeptr head_;
 		size_type size_;
 
-		// Ctors and dtor
+	// Ctors and dtor
 	public:
 		list() noexcept : head_{}, size_{}, allocator_{} {}
 
@@ -358,33 +369,46 @@ namespace my_lib
 
 	private:
 		template <class Iter>
-		void construct_range_unchecked(Iter first, const Iter last, nodeptr where)
+		void construct_range(Iter first, const Iter last, nodeptr where)
 		{
 			if (first == last) return;
 
 			while (first != last) {
 				auto node = allocator_.allocate(1);
-				node_allocator_traits::construct(allocator_, node, where, where->prev_, *first);
-				where->prev_->next_ = node;
-				where->prev_ = node;
+				node_allocator_traits::construct(allocator_, node, where->next_, where, *first);
+				where->next_->prev_= node;
+				where->next_ = node;
+				where = node;
 				++first;
 			}
 		}
 
-		void construct_range_unchecked(nodeptr first, const nodeptr last, nodeptr where)
+		void construct_range(nodeptr first, const nodeptr last, nodeptr where)
 		{
 			if (first == last) return;
 
 			while (first != last) {
 				auto node = allocator_.allocate(1);
-				node_allocator_traits::construct(allocator_, node, where, where->prev_, first->value_);
-				where->prev_->next_ = node;
-				where->prev_ = node;
+				node_allocator_traits::construct(allocator_, node, where->next_, where, first->value_);
+				where->next_->prev_ = node;
+				where->next_ = node;
+				where = node;
 				first = first->next_;
 			}
 		}
 
-		void erase_unchecked(nodeptr first, nodeptr last)
+		void construct_n_copies(size_type count, const_reference value, nodeptr where)
+		{
+			for (size_type i{}; i < count; ++i) {
+				auto node = allocator_.allocate(1);
+				node_allocator_traits::construct(allocator_, node, where->next_, where, value);
+				where->next_->prev_= node;
+				where->next_ = node;
+				where = node;
+			}
+		}
+
+		void erase_range(nodeptr first, nodeptr last)
 		{
 			first->prev_->next_ = last;
 			last->prev_ = first->prev_;
@@ -397,43 +421,80 @@ namespace my_lib
 		list(std::initializer_list<value_type> list, 
 			 const allocator_type& allocator = allocator_type{}) : list(allocator, list.size())
 		{
-			construct_range_unchecked(list.begin(), list.end(), head_);
+			construct_range(list.begin(), list.end(), head_);
 		}
 
-		~list() noexcept
+	private:
+		void tidy() noexcept
 		{
 			if (head_ != nullptr) {
-				node_type::free_all_nonhead(allocator_, head_);
-				node_type::free_without_value(allocator_, head_);
+				if (size_ != 0) {
+					node_type::free_all_nonhead(allocator_, head_);
+					node_type::free_without_value(allocator_, head_);
+				}
+				else {
+					node_type::free_without_value(allocator_, head_);
+				}
 			}
 		}
 
-	// operator=, assign, get_allocator
 	public:
-		list& operator=(const list& list)
+		~list() noexcept
 		{
-			auto rhs_size	= list.size_;
-			auto rhs_head	= list.head_;
+			tidy();
+		}
+
+	// Member functions (operator=, assign, get_allocator)
+	public:
+		list& operator=(const list& rhs)
+		{
+			auto rhs_size	= rhs.size_;
+			auto rhs_head	= rhs.head_;
 			auto rhs_node	= rhs_head->next_;
 			auto node		= head_->next_;
-			if (size_ < rhs_size || size_ == rhs_size) {
+			if (size_ == 0) {
+				construct_range(rhs_head->next_, rhs_head, head_);
+			}
+			else if (size_ <= rhs_size) {
 				for (; node != head_; rhs_node = rhs_node->next_, node = node->next_) {
 					node->value_ = rhs_node->value_;
 				}
 
 				// if size != list.size_ append remain elements
 				if (size_ < rhs_size) {
-					construct_range_unchecked(rhs_node, rhs_head, head_);
+					construct_range(rhs_node, rhs_head, head_);
 				}
 			}
 			else {
 				for (; rhs_node != rhs_head; rhs_node = rhs_node->next_, node = node->next_) {
 					node->value_ = rhs_node->value_;
 				}
-				erase_unchecked(node, head_);
+				erase_range(node, head_);
 			}
-			size_ = list.size_;
+			size_ = rhs.size_;
 			
+			return *this;
+		}
+
+		list& operator=(list&& rhs) 
+		{
+			if (allocator_ == rhs.allocator_) {
+				tidy();
+				head_		= std::move(rhs.head_); // is it reasonable?
+				rhs.head_	= nullptr;
+				size_		= rhs.size_;
+			}
+			else if (list_allocator_traits::propagate_on_container_move_assignment::value) {
+				tidy(); // use old allocator to free the storage
+				allocator_	= std::move(rhs.allocator_);
+				head_		= node_type::create_head(allocator_);
+				size_		= rhs.size_;
+				construct_range(rhs.head_->next_, rhs.head_, head_); // copy all elements from rhs
+			}
+			else {
+				assign(rhs.begin(), rhs.end());
+			}
+
 			return *this;
 		}
 
@@ -442,21 +503,24 @@ namespace my_lib
 		{
 			auto ilbeg = ilist.begin();
 			auto ilsize = ilist.size();
+			if (size_ == 0) {
+				construct_range(ilbeg, ilist.end(), head_);
+			}
 			if (auto node = head_->next_;  size_ <= ilsize) {
 				for (; node != head_; node = node->next_) {
 					node->value_ = *(ilbeg++);
 				}
 
 				if (size_ < ilsize) {
-					construct_range_unchecked(ilbeg, ilist.end(), head_);
+					construct_range(ilbeg, ilist.end(), head_);
 				}
 			}
 			else {
-				for (std::size_t i{}; i < ilsize; ++i, node = node->next_) {
+				for (size_type i{}; i < ilsize; ++i, node = node->next_) {
 					node->value_ = *(ilbeg++);
 				}
 
-				erase_unchecked(node, head_);
+				erase_range(node, head_);
 			}
 
 			size_ = ilsize;
@@ -464,29 +528,59 @@ namespace my_lib
 			return *this;
 		}
 
-		template <class Iter>
+		template <class Iter, std::enable_if_t<is_iterator<Iter>::value, int> = 0>
 		void assign(Iter first, const Iter last)
 		{
-			auto new_size = std::distance(first, last);
-			if (auto node = head_->next_; size_ <= new_size) {
+			size_type new_size = std::distance(first, last);
+			if (size_ == 0) {
+				construct_range(first, last, head_);
+			}
+			else if (auto node = head_->next_; size_ <= new_size) {
 				for (; node != head_; node = node->next_) {
 					node->value_ = *(first++);
 				}
 
 				if (size_ < new_size) {
-					construct_range_unchecked(first, last, head_);
+					construct_range(first, last, head_);
 				}
 			}
 			else {
-				for (std::size_t i{}; i < new_size; ++i, node = node->next_) {
+				for (size_type i{}; i < new_size; ++i, node = node->next_) {
 					node->value_ = *(first++);
 				}
 
-				erase_unchecked(node, head_);
+				erase_range(node, head_);
 			}
+			size_ = new_size;
 		}
 
-		void assing(std::initializer_list<T> ilist)
+		void assign(size_type count, const_reference value)
+		{
+			if (size_ == 0) {
+				construct_n_copies(count, value, head_);
+			}
+			else if (auto node = head_->next_; size_ <= count) {
+				for (; node != head_; node = node->next_) {
+					node->value_ = value;
+				}
+
+				if (size_ < count) {
+					for (size_type i{ size_ }; i < count; ++i, node = node->next_) {
+						node->value_ = value;
+					}
+				}
+			}
+			else {
+				for (size_type i{}; i < count; ++i, node = node->next_) {
+					node->value_ = value;
+				}
+				erase_range(node, head_);
+			}
+
+			size_ = count;
+		}
+
+		void assign(std::initializer_list<T> ilist)
 		{
 			*this = ilist;
 		}
@@ -494,6 +588,32 @@ namespace my_lib
 		[[nodiscard]] allocator_type get_allocator() const noexcept
 		{
 			return static_cast<allocator_type>(allocator_);
+		}
+
+	// Element access
+	public:
+		[[nodiscard]] reference front()
+		{
+			assert(size_ != 0 && "front() on empty container");
+			return head_->next_->value_;
+		}
+
+		[[nodiscard]] const_reference front() const
+		{
+			assert(size_ != 0 && "front() on empty container");
+			return head_->next_->value_;
+		}
+
+		[[nodiscard]] reference back()
+		{
+			assert(size_ != 0 && "back() on empty container");
+			return head_->prev_->value_;
+		}
+
+		[[nodiscard]] const_reference back() const
+		{
+			assert(size_ != 0 && "back() on empty container");
+			return head_->prev_->value_;
 		}
 
 	// Iterators
@@ -579,6 +699,16 @@ namespace my_lib
 			auto alnode_max = static_cast<size_type>(node_allocator_traits::max_size(allocator_));
 			if (diff_max < alnode_max) return diff_max;
 			return alnode_max;
+		}
+
+	// Modifiers
+	public:
+		void clear() noexcept
+		{
+			node_type::free_all_nonhead(allocator_, head_);
+			head_->next_ = head_;
+			head_->prev_ = head_;
+			size_ = 0;
 		}
 	};
 }

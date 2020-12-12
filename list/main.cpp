@@ -84,7 +84,7 @@ struct A {
 
 int main()
 {
-	my_lib::list<A> a;// { 1, 2, 3, 4, 5, 6, 7, 8, 9 };
-	std::cout << a.empty() << '\n';
+	my_lib::list<A> a{ 1, 2, 3, 4, 5, 6 };
+
 	return 0;
 }

@@ -270,6 +270,43 @@ namespace my_lib
 
 	struct initializer_tag {};
 
+	/* Implemented:
+	|-----------------------------------|
+	|									|
+	|* Constructors:					|
+	| list()							|
+	| list(std::initializer_list<T>)	|
+	|* Destructor						|
+	|-----------------------------------|	
+	
+	|-----------------------------------|
+	|* Member functions:				|
+	| operator=(const list&)			|
+	| operator=(std::initializer_list<T>|
+	| assign(Iter, const Iter)			|
+	| assign(std::initializer_list<T>)	|
+	| get_allocator()					|
+	|-----------------------------------|
+	
+	|-----------------------------------|
+	|* Iterators:						|
+	| begin() (2 overloads)				|
+	| end() (2 overloads)				|
+	| cbegin()							|
+	| cend()							|
+	| rbegin() (2 overloads)			|
+	| rend() (2 overloads)				|
+	| crbegin()							|
+	| crend()							|
+	|-----------------------------------|
+
+	|-----------------------------------|
+	|* Capacity:						|
+	| empty()							|
+	| size()							|
+	| max_size()						|				
+	|-----------------------------------|
+	*/
 	// list_node head will store first element(next_) and last element(prev_) 
 	template <class T, class Alloc = std::allocator<T>>
 	class list
@@ -278,29 +315,29 @@ namespace my_lib
 		// type aliases
 	public:
 		// value type aliases
-		using value_type = T;
-		using pointer = T*;
-		using const_pointer = const T*;
-		using reference = T&;
-		using const_reference = const T&;
-		using size_type = std::size_t;
-		using difference_type = std::ptrdiff_t;
+		using value_type				= T;
+		using pointer					= T*;
+		using const_pointer				= const T*;
+		using reference					= T&;
+		using const_reference			= const T&;
+		using size_type					= std::size_t;
+		using difference_type			= std::ptrdiff_t;
 
-		// allocator types aliases and node pointer aliase
-		using allocator_type = Alloc;
-		using list_allocator = typename std::allocator_traits<Alloc>::template rebind_alloc<T>;
-		using list_allocator_traits = std::allocator_traits<list_allocator>;
-		using node_allocator_type = typename std::allocator_traits<Alloc>::template rebind_alloc<list_node<T, typename std::allocator_traits<Alloc>::void_pointer>>;
-		using node_allocator_traits = std::allocator_traits<node_allocator_type>;
-		using node_type = list_node<T, typename node_allocator_traits::void_pointer>;
-		using nodeptr = typename node_allocator_traits::pointer;
+		// allocator types aliases and node pointer aliases
+		using allocator_type			= Alloc;
+		using list_allocator			= typename std::allocator_traits<Alloc>::template rebind_alloc<T>;
+		using list_allocator_traits		= std::allocator_traits<list_allocator>;
+		using node_allocator_type		= typename std::allocator_traits<Alloc>::template rebind_alloc<list_node<T, typename std::allocator_traits<Alloc>::void_pointer>>;
+		using node_allocator_traits		= std::allocator_traits<node_allocator_type>;
+		using node_type					= list_node<T, typename node_allocator_traits::void_pointer>;
+		using nodeptr					= typename node_allocator_traits::pointer;
 
 		// iterator aliases
-		using iterator = list_iterator<list<T, Alloc>>;
-		using const_iterator = list_const_iterator<list<T, Alloc>>;
+		using iterator					= list_iterator<list<T, Alloc>>;
+		using const_iterator			= list_const_iterator<list<T, Alloc>>;
 
-		using reverse_iterator = std::reverse_iterator<iterator>;
-		using const_reverse_iterator = std::reverse_iterator<const_iterator>;
+		using reverse_iterator			= std::reverse_iterator<iterator>;
+		using const_reverse_iterator	= std::reverse_iterator<const_iterator>;
 
 		// list data
 	private:
@@ -386,7 +423,7 @@ namespace my_lib
 
 				// if size != list.size_ append remain elements
 				if (size_ < rhs_size) {
-					construct_range_unchecked(rhs_node, rhs_head, head_->prev_);
+					construct_range_unchecked(rhs_node, rhs_head, head_);
 				}
 			}
 			else {
@@ -398,6 +435,65 @@ namespace my_lib
 			size_ = list.size_;
 			
 			return *this;
+		}
+
+		// FIXME: same code as operator= (list)
+		list& operator=(std::initializer_list<T> ilist) 
+		{
+			auto ilbeg = ilist.begin();
+			auto ilsize = ilist.size();
+			if (auto node = head_->next_;  size_ <= ilsize) {
+				for (; node != head_; node = node->next_) {
+					node->value_ = *(ilbeg++);
+				}
+
+				if (size_ < ilsize) {
+					construct_range_unchecked(ilbeg, ilist.end(), head_);
+				}
+			}
+			else {
+				for (std::size_t i{}; i < ilsize; ++i, node = node->next_) {
+					node->value_ = *(ilbeg++);
+				}
+
+				erase_unchecked(node, head_);
+			}
+
+			size_ = ilsize;
+
+			return *this;
+		}
+
+		template <class Iter>
+		void assign(Iter first, const Iter last)
+		{
+			auto new_size = std::distance(first, last);
+			if (auto node = head_->next_; size_ <= new_size) {
+				for (; node != head_; node = node->next_) {
+					node->value_ = *(first++);
+				}
+
+				if (size_ < new_size) {
+					construct_range_unchecked(first, last, head_);
+				}
+			}
+			else {
+				for (std::size_t i{}; i < new_size; ++i, node = node->next_) {
+					node->value_ = *(first++);
+				}
+
+				erase_unchecked(node, head_);
+			}
+		}
+
+		void assing(std::initializer_list<T> ilist)
+		{
+			*this = ilist;
+		}
+		
+		[[nodiscard]] allocator_type get_allocator() const noexcept
+		{
+			return static_cast<allocator_type>(allocator_);
 		}
 
 	// Iterators

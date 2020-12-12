@@ -84,7 +84,10 @@ struct A {
 
 int main()
 {
-	my_lib::list<A> a{ 1, 2, 3, 4, 5, 6 };
-
+	my_lib::list<A> a{ 1, 2, 11, 11, 11, 11, 11, 11, 11  };
+	a.assing({ 3,4 ,56, 7 });
+	for (auto&& el : a) {
+		std::cout << el << '\n';
+	}
 	return 0;
 }

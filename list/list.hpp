@@ -43,27 +43,27 @@ namespace my_lib
 	template <class MyList>
 	class list_const_iterator
 	{
-	// type aliases
+		// type aliases
 	public:
 		using iterator_category = std::bidirectional_iterator_tag;
 
-		using nodeptr			= typename MyList::nodeptr;
-		using value_type		= typename MyList::value_type;
-		using pointer			= typename MyList::const_pointer;
-		using reference			= typename MyList::const_reference;
-		using difference_type	= typename MyList::difference_type;
+		using nodeptr = typename MyList::nodeptr;
+		using value_type = typename MyList::value_type;
+		using pointer = typename MyList::const_pointer;
+		using reference = typename MyList::const_reference;
+		using difference_type = typename MyList::difference_type;
 
 	private:
 		const MyList* mylist_;
 		nodeptr ptr_;
-	
-	// Ctors
+
+		// Ctors
 	public:
 		list_const_iterator(const MyList* list, const nodeptr ptr) noexcept : mylist_{ list }, ptr_{ ptr }{}
-		
+
 		list_const_iterator() noexcept = default;
 
-	// helpers
+		// helpers
 	private:
 		void range_verify() const noexcept
 		{
@@ -76,7 +76,32 @@ namespace my_lib
 					break;
 				}
 			}
-			assert("out of range iterator");
+			assert(flag && "out of range iterator");
+		}
+
+		void offset_verify(difference_type offset) const noexcept
+		{
+			if (ptr_ != mylist_->head_) {
+				bool flag{};
+				for (auto node = const_cast<nodeptr>(mylist_->head_->next_); node != mylist_->head_; node = node->next_) {
+					if (ptr_ == node) {
+						flag = true;
+						break;
+					}
+				}
+				assert(flag && "out of range iterator");
+			}
+
+			if (offset > 0) {
+				if (mylist_->size_ == 0) {
+					assert(false && "cannot increment iterator on empty container");
+				}
+			}
+			else {
+				if (mylist_->size_ == 0) {
+					assert(false && "cannot decrement iterator on empty container");
+				}
+			}
 		}
 
 		void is_comparable(const list_const_iterator& rhs) const noexcept
@@ -84,25 +109,25 @@ namespace my_lib
 			assert(mylist_ == rhs.mylist_ && "iterators incomparable");
 		}
 
-	// Access 
+		// Access 
 	public:
 		[[nodiscard]] reference operator*() const noexcept
 		{
 			range_verify();
 			return ptr_->value_;
 		}
-		
+
 		[[nodiscard]] pointer operator->() const noexcept
 		{
 			range_verify();
 			return std::pointer_traits<pointer>::pointer_to(**this);
 		}
 
-	// Increment / decrement
+		// Increment / decrement
 	public:
 		list_const_iterator& operator++() noexcept
 		{
-			range_verify();
+			offset_verify(1);
 			ptr_ = ptr_->next_;
 			return *this;
 		}
@@ -117,7 +142,7 @@ namespace my_lib
 
 		list_const_iterator& operator--() noexcept
 		{
-			range_verify();
+			offset_verify(-1);
 			ptr_ = ptr_->prev_;
 			return *this;
 		}
@@ -129,7 +154,7 @@ namespace my_lib
 			return tmp;
 		}
 
-	// Compare
+		// Compare
 	public:
 		[[nodiscard]] bool operator ==(const list_const_iterator& rhs) const noexcept
 		{
@@ -140,6 +165,17 @@ namespace my_lib
 		[[nodiscard]] bool operator !=(const list_const_iterator& rhs) const noexcept
 		{
 			return !(*this == rhs);
+		}
+
+	public:
+		nodeptr& get_pointer() noexcept
+		{
+			return ptr_;
+		}
+
+		const nodeptr& get_pointer() const noexcept
+		{
+			return ptr_;
 		}
 	};
 
@@ -315,8 +351,18 @@ namespace my_lib
 	| max_size()						|				
 	-------------------------------------
 
-	-------------------------------------
-	|* Modifiers:						|
+	-------------------------------------------------------------
+	|* Modifiers:												|
+	| clear()													|
+	| insert(const_iterator, const_reference)					|
+	| insert(const_iterator, value_type&&)						|
+	| insert(const_iterator, size_type count, const_reference)	|
+	| insert(const_iterator, Iter first, Iter last)				|
+	| insert(const_iterator, std::initializer_list<value_type>) |
+	| emplace(const iterator, Args&&...)						|
+	| erase(const_iterator)										|
+	| erase(const_iterator, const_iterator)						|
+
 	*/
 	// list_node head will store first element(next_) and last element(prev_) 
 	template <class T, class Alloc = std::allocator<T>>
@@ -381,6 +427,27 @@ namespace my_lib
 				where = node;
 				++first;
 			}
+		}
+
+		void construct_range(const_iterator first, const_iterator last, nodeptr where)
+		{
+			if (first == last) return;
+
+			size_type count = std::distance(first, last);
+			size_type i{};
+			while (i++ < count) {
+				auto node = allocator_.allocate(1);
+				node_allocator_traits::construct(allocator_, node, where->next_, where, *first);
+				where->next_->prev_ = node;
+				where->next_ = node;
+				where = node;
+				++first;
+			}
+		}
+
+		void construct_range(iterator first, iterator last, nodeptr where)
+		{
+			construct_range(static_cast<const_iterator>(first), last, where);
 		}
 
 		void construct_range(nodeptr first, const nodeptr last, nodeptr where)
@@ -710,6 +777,103 @@ namespace my_lib
 			head_->prev_ = head_;
 			size_ = 0;
 		}
+
+	private:
+		void range_verify(const nodeptr& ptr) const noexcept
+		{
+			if (ptr == head_) return;
+
+			auto node = head_->next_;
+			bool flag{};
+			for (; node != head_; node = node->next_) {
+				if (ptr == node) {
+					flag = true;
+					break;
+				}
+			}
+			assert(flag && "out of range iterator");
+		}
+
+	public:
+		iterator insert(const_iterator pos, const_reference value)
+		{
+			return emplace(pos, value);
+		}
+
+		iterator insert(const_iterator pos, value_type&& value)
+		{
+			return emplace(pos, std::move(value));
+		}
+
+		iterator insert(const_iterator pos, size_type count, const_reference value)
+		{
+			auto where = pos.get_pointer();
+			range_verify(where);
+
+			auto node = where->prev_;
+			construct_n_copies(count, value, node);
+			size_ += count;
+			return iterator{ this, node->next_ };
+		}
+
+		template <class Iter, std::enable_if_t <is_iterator<Iter>::value || std::is_pointer<Iter>::value, int> = 0>
+		iterator insert(const_iterator pos, Iter first, Iter last)
+		{
+			auto where = pos.get_pointer();
+			range_verify(where);
+
+			auto node = where->prev_;
+			construct_range(first, last, node);
+			size_ += std::distance(first, last);
+			return iterator{ this, node->next_ };
+		}
+
+		template <class... Args>
+		iterator emplace(const_iterator pos, Args&&...what)
+		{
+			auto where = pos.get_pointer();
+			range_verify(where);
+
+			auto node = allocator_.allocate(1);
+			node_allocator_traits::construct(allocator_, node, where, where->prev_, std::forward<Args>(what)...);
+			where->prev_->next_ = node;
+			where->prev_ = node;
+			++size_;
+
+			return iterator{ this, node };
+		}
+
+		iterator insert(const_iterator pos, std::initializer_list<value_type> ilist)
+		{
+			return insert(pos, ilist.begin(), ilist.end());
+		}
+
+		iterator erase(const_iterator pos)
+		{
+			auto where = pos.get_pointer();
+			assert(where != head_ && "cannot erase out of range iterator");
+			range_verify(where);
+
+			auto result = where->next_;
+			erase_range(where, where->next_);
+			--size_;
+			return iterator(this, result);
+		}
+
+		iterator erase(const_iterator first, const_iterator last)
+		{
+			auto begin = first.get_pointer();
+			assert(begin != head_ && "cannot erase out of range iterator");
+			range_verify(begin);
+
+			auto end = last.get_pointer();
+			range_verify(end);
+
+			size_ -= std::distance(first, last);
+			erase_range(begin, end);
+			return iterator{ this, end };
+		}
+
 	};
 }
 

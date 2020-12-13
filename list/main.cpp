@@ -86,6 +86,7 @@ struct A {
 int main()
 {
 	my_lib::list<A> a{ 1, 2, 3  };
+	std::cout << *a.erase(a.begin(), --a.end()) << '\n';
 	for (auto&& el : a) {
 		std::cout << el << '\n';
 	}

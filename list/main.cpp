@@ -85,10 +85,11 @@ struct A {
 
 int main()
 {
-	my_lib::list<A> a{ 1, 2, 3  };
-	std::cout << *a.erase(a.begin(), --a.end()) << '\n';
-	for (auto&& el : a) {
-		std::cout << el << '\n';
-	}
+	my_lib::list<A> a{ 1, 3, 5, 7 };
+	my_lib::list<A> b{ 1,  2, 4 };
+	auto before = a.begin();
+	a.merge(b);
+	auto after = a.begin();
+	std::cout << std::boolalpha << (before == after);
 	return 0;
 }

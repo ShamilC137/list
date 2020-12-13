@@ -271,8 +271,8 @@ namespace my_lib
 		[[nodiscard]] static nodeptr create_head(NodeAlloc& allocator)
 		{
 			nodeptr head = allocator.allocate(1);
-			::new (&head->next_) nodeptr(head);
-			::new (&head->prev_) nodeptr(head);
+			::new (std::addressof(head->next_)) nodeptr(head);
+			::new (std::addressof(head->prev_)) nodeptr(head);
 			
 			return head;
 		}
@@ -288,7 +288,7 @@ namespace my_lib
 		template <class NodeAlloc>
 		static void free_node(NodeAlloc& allocator, nodeptr ptr) noexcept
 		{
-			std::allocator_traits<NodeAlloc>::destroy(allocator, &ptr->value_);
+			std::allocator_traits<NodeAlloc>::destroy(allocator, std::addressof(ptr->value_));
 			free_without_value(allocator, ptr);
 		}
 
@@ -305,65 +305,12 @@ namespace my_lib
 		}
 	};
 
-	struct initializer_tag {};
-
-	/* Implemented:
-	-------------------------------------
-	|* Constructors:					|
-	| list()							|
-	| list(std::initializer_list<T>)	|
-	|* Destructor						|
-	-------------------------------------	
-	
-	-------------------------------------
-	|* Member functions:				|
-	| operator=(const list&)			|
-	| operator=(list&&)					|
-	| operator=(std::initializer_list<T>|
-	| assign(size_type, const_reference)|
-	| assign(Iter, const Iter)			|
-	| assign(std::initializer_list<T>)	|
-	| get_allocator()					|
-	-------------------------------------
-	
-	-------------------------------------
-	|* Element access:					|
-	| front() (2 overloads)				|
-	| back() (2 overloads)				|
-	-------------------------------------
-
-	-------------------------------------
-	|* Iterators:						|
-	| begin() (2 overloads)				|
-	| end() (2 overloads)				|
-	| cbegin()							|
-	| cend()							|
-	| rbegin() (2 overloads)			|
-	| rend() (2 overloads)				|
-	| crbegin()							|
-	| crend()							|
-	-------------------------------------
-
-	-------------------------------------
-	|* Capacity:						|
-	| empty()							|
-	| size()							|
-	| max_size()						|				
-	-------------------------------------
-
-	-------------------------------------------------------------
-	|* Modifiers:												|
-	| clear()													|
-	| insert(const_iterator, const_reference)					|
-	| insert(const_iterator, value_type&&)						|
-	| insert(const_iterator, size_type count, const_reference)	|
-	| insert(const_iterator, Iter first, Iter last)				|
-	| insert(const_iterator, std::initializer_list<value_type>) |
-	| emplace(const iterator, Args&&...)						|
-	| erase(const_iterator)										|
-	| erase(const_iterator, const_iterator)						|
-
-	*/
+	/*
+	 * remain:
+	 * ctors
+	 * operations
+	 * non - member fns
+	 */
 	// list_node head will store first element(next_) and last element(prev_) 
 	template <class T, class Alloc = std::allocator<T>>
 	class list
@@ -848,6 +795,7 @@ namespace my_lib
 			return insert(pos, ilist.begin(), ilist.end());
 		}
 
+
 		iterator erase(const_iterator pos)
 		{
 			auto where = pos.get_pointer();
@@ -874,6 +822,210 @@ namespace my_lib
 			return iterator{ this, end };
 		}
 
+
+		void push_back(const_reference value)
+		{
+			emplace_back(value);
+		}
+
+		void push_back(value_type&& value)
+		{
+			emplace_back(std::move(value));
+		}
+
+		template<class...Args>
+		reference emplace_back(Args&&... what)
+		{
+			++size_;
+			auto node = allocator_.allocate(1);
+			node_allocator_traits::construct(allocator_, node, head_, head_->prev_, std::forward<Args>(what)...);
+			head_->prev_->next_ = node;
+			head_->prev_ = node;
+
+			return node->value_;
+		}
+		
+		void pop_back() noexcept
+		{
+			assert(size_ != 0 && "cannot pop from empty container");
+
+			auto node = head_->prev_->prev_;
+			node_type::free_node(allocator_, head_->prev_);
+			head_->prev_ = node;
+			node->next_ = head_;
+			--size_;
+		}
+
+
+		void push_front(const_reference value)
+		{
+			emplace_front(value);
+		}
+
+		void push_front(value_type&& value)
+		{
+			emplace_front(std::move(value));
+		}
+
+		template <class... Args>
+		reference emplace_front(Args&&...what)
+		{
+			++size_;
+			
+			auto node = allocator_.allocate(1);
+			node_allocator_traits::construct(allocator_, node, head_->next_, head_, std::forward<Args>(what)...);
+			head_->next_->prev_ = node;
+			head_->next_ = node;
+
+			return node->value_;
+		}
+
+		void pop_front() noexcept
+		{
+			assert(size_ != 0 && "cannot pop on empty container");
+			--size_;
+			auto node = head_->next_->next_;
+			node_type::free_node(allocator_, head_->next_);
+			head_->next_ = node;
+			node->prev_ = head_;
+		}
+
+
+		void resize(size_type new_size)
+		{
+			if (size_ < new_size) {
+				for (size_type i{ size_ }; i < new_size; ++i) {
+					emplace_back();
+				}
+			}
+			else {
+				while (new_size < size_) {
+					pop_back();
+				}
+			}
+		}
+
+		void resize(size_type new_size, const_reference value) 
+		{
+			if (size_ < new_size) {
+				construct_n_copies(new_size - size_, value, head_->prev_);
+			}
+			else {
+				while (new_size < size_) {
+					pop_back();
+				}
+			}
+		}
+
+
+		void swap(list& rhs) noexcept(std::allocator_traits<node_allocator_type>::is_always_equal::value)
+		{
+			if (this != std::addressof(rhs)) {
+				if (std::allocator_traits<node_allocator_type>::is_always_equal::value) {
+					std::swap(allocator_, rhs.allocator_);
+				}
+
+				std::swap(head_, rhs.head_);
+				std::swap(size_, rhs.size_);
+			}
+		}
+
+		// Operations
+	public:
+		template <class Cmp = std::less<value_type>>
+		void merge(list& rhs, Cmp cmp = Cmp{})
+		{
+			merge(std::move(rhs), cmp);
+		}
+
+
+	private:
+		template<class Cmp>
+		bool is_sorted(const list& list, Cmp cmp)
+		{
+			auto node = list.head_->next_;
+			auto end = list.head_->prev_;
+			for (; node != end; node = node->next_) {
+				if (!cmp(node->value_, node->next_->value_)) {
+					return false;
+				}
+			}
+			return true;
+		}
+
+	public:
+		// FIXME: unstable
+		template <class Cmp = std::less<value_type>>
+		void merge(list&& rhs, Cmp cmp = Cmp{})
+		{
+			if (this == std::addressof(rhs)) return;
+
+			assert(get_allocator() == rhs.get_allocator() && "list allocator incompatible for merge");
+
+			if (rhs.size_ == 0) return;
+
+			if (size_ == 0) {
+				assert(is_sorted(rhs, cmp) && "sequence not ordered");
+
+				if (!head_) {
+					head_ = node_type::create_head(allocator_);
+				}
+
+				head_->next_ = rhs.head_->next_;
+				head_->prev_ = rhs.head_->prev_;
+				head_->next_->prev_ = head_;
+				head_->prev_->next_ = head_;
+
+				rhs.head_->next_ = rhs.head_;
+				rhs.head_->prev_ = rhs.head_;
+
+				size_ = rhs.size_;
+				rhs.size_ = 0;
+				return;
+			}
+
+			assert(is_sorted(*this, cmp) && is_sorted(rhs, cmp) && "sequence not ordered");
+			auto node = head_;
+			auto lhsnode = head_->next_;
+			auto rhsnode = rhs.head_->next_;
+
+			while (lhsnode != head_ && rhsnode != rhs.head_) {
+				if (cmp(lhsnode->value_, rhsnode->value_)) {
+					node->next_ = lhsnode;
+					node->next_->prev_ = node;
+					node = node->next_;
+					lhsnode = lhsnode->next_;
+				}
+				else {
+					node->next_ = rhsnode;
+					node->next_->prev_ = node;
+					node = node->next_;
+					rhsnode = rhsnode->next_;
+				}
+			}
+
+			while (lhsnode != head_) {
+				node->next_ = lhsnode;
+				node->next_->prev_ = node;
+				node = node->next_;
+				lhsnode = lhsnode->next_;
+			}
+			
+			while (rhsnode != rhs.head_) {
+				node->next_ = rhsnode;
+				node->next_->prev_ = node;
+				node = node->next_;
+				rhsnode = rhsnode->next_;
+			}
+
+			head_->prev_ = node;
+			node->next_ = head_;
+			size_ = size_ + rhs.size_;
+
+			rhs.head_->next_ = rhs.head_;
+			rhs.head_->prev_ = rhs.head_;
+			rhs.size_ = 0;
+		}
 	};
 }
 

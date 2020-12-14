@@ -306,9 +306,9 @@ namespace my_lib
 	};
 
 	/*
+	 * There are no sort() function
 	 * remain:
 	 * ctors
-	 * operations
 	 * non - member fns
 	 */
 	// list_node head will store first element(next_) and last element(prev_) 
@@ -930,31 +930,80 @@ namespace my_lib
 			}
 		}
 
-		// Operations
+	// Operations
+	private:
+		void unchecked_splice(nodeptr first, nodeptr last, nodeptr where)
+		{
+			first->prev_->next_ = last;
+			auto tmp = first->prev_;
+
+			where->prev_->next_ = first;
+			first->prev_ = where->prev_;
+			where->prev_ = last->prev_;
+			last->prev_->next_ = where;
+
+			last->prev_ = tmp;
+		}
+
 	public:
+		// FIXME: unstable. I'm too lazy to fix this
 		template <class Cmp = std::less<value_type>>
 		void merge(list& rhs, Cmp cmp = Cmp{})
 		{
 			merge(std::move(rhs), cmp);
 		}
 
-
 	private:
+		// handmade sorted because std::sorted uses iterators (I have no unchecked iterators for now)
 		template<class Cmp>
 		bool is_sorted(const list& list, Cmp cmp)
 		{
 			auto node = list.head_->next_;
 			auto end = list.head_->prev_;
 			for (; node != end; node = node->next_) {
-				if (!cmp(node->value_, node->next_->value_)) {
+				if (cmp(node->next_->value_, node->value_)) {
 					return false;
 				}
 			}
 			return true;
 		}
 
+		template <class Cmp>
+		nodeptr unchecked_merge(nodeptr lhsfirst, nodeptr lhslast, nodeptr rhsfirst, nodeptr rhslast, Cmp cmp) noexcept
+		{
+			auto node = lhsfirst->prev_;
+			while (lhsfirst != lhslast && rhsfirst != rhslast) {
+				if (!cmp(rhsfirst->value_, lhsfirst->value_)) {
+					node->next_ = lhsfirst;
+					node->next_->prev_ = node;
+					node = node->next_;
+					lhsfirst = lhsfirst->next_;
+				}
+				else {
+					node->next_ = rhsfirst;
+					node->next_->prev_ = node;
+					node = node->next_;
+					rhsfirst = rhsfirst->next_;
+				}
+			}
+
+			while (lhsfirst != lhslast) {
+				node->next_ = lhsfirst;
+				node->next_->prev_ = node;
+				node = node->next_;
+				lhsfirst = lhsfirst->next_;
+			}
+
+			while (rhsfirst != rhslast) {
+				node->next_ = rhsfirst;
+				node->next_->prev_ = node;
+				node = node->next_;
+				rhsfirst = rhsfirst->next_;
+			}
+
+			return node;
+		}
 	public:
-		// FIXME: unstable
 		template <class Cmp = std::less<value_type>>
 		void merge(list&& rhs, Cmp cmp = Cmp{})
 		{
@@ -966,57 +1015,22 @@ namespace my_lib
 
 			if (size_ == 0) {
 				assert(is_sorted(rhs, cmp) && "sequence not ordered");
-
+				
 				if (!head_) {
 					head_ = node_type::create_head(allocator_);
 				}
 
-				head_->next_ = rhs.head_->next_;
-				head_->prev_ = rhs.head_->prev_;
-				head_->next_->prev_ = head_;
-				head_->prev_->next_ = head_;
-
-				rhs.head_->next_ = rhs.head_;
-				rhs.head_->prev_ = rhs.head_;
-
+				unchecked_splice(rhs.begin().get_pointer(), rhs.end().get_pointer(), head_);
 				size_ = rhs.size_;
 				rhs.size_ = 0;
 				return;
 			}
 
 			assert(is_sorted(*this, cmp) && is_sorted(rhs, cmp) && "sequence not ordered");
-			auto node = head_;
+	
 			auto lhsnode = head_->next_;
 			auto rhsnode = rhs.head_->next_;
-
-			while (lhsnode != head_ && rhsnode != rhs.head_) {
-				if (cmp(lhsnode->value_, rhsnode->value_)) {
-					node->next_ = lhsnode;
-					node->next_->prev_ = node;
-					node = node->next_;
-					lhsnode = lhsnode->next_;
-				}
-				else {
-					node->next_ = rhsnode;
-					node->next_->prev_ = node;
-					node = node->next_;
-					rhsnode = rhsnode->next_;
-				}
-			}
-
-			while (lhsnode != head_) {
-				node->next_ = lhsnode;
-				node->next_->prev_ = node;
-				node = node->next_;
-				lhsnode = lhsnode->next_;
-			}
-			
-			while (rhsnode != rhs.head_) {
-				node->next_ = rhsnode;
-				node->next_->prev_ = node;
-				node = node->next_;
-				rhsnode = rhsnode->next_;
-			}
+			auto node = unchecked_merge(lhsnode, head_, rhsnode, rhs.head_, cmp);
 
 			head_->prev_ = node;
 			node->next_ = head_;
@@ -1026,7 +1040,168 @@ namespace my_lib
 			rhs.head_->prev_ = rhs.head_;
 			rhs.size_ = 0;
 		}
+
+
+		void splice(const_iterator pos, list& rhs) noexcept
+		{
+			splice(pos, std::move(rhs), rhs.begin(), rhs.end());
+		}
+
+		void splice(const_iterator pos, list&& rhs) noexcept
+		{
+			splice(pos, std::move(rhs), rhs.begin(), rhs.end());
+		}
+
+		void splice(const_iterator pos, list& rhs, const_iterator what)
+		{
+			splice(pos, std::move(rhs), what);
+		}
+
+		void splice(const_iterator pos, list&& rhs, const_iterator it)
+		{
+			assert(this != std::addressof(rhs) && "splicing the same object");
+			auto where = pos.get_pointer();
+			auto what = it.get_pointer();
+			assert(what != rhs.head_ && "cannot move rhs head");
+			assert(rhs.size_ != 0 && "moving from empty container");
+			rhs.range_verify(what);
+
+			++size_;
+			--rhs.size_;
+
+			what->prev_->next_ = what->next_;
+			what->next_->prev_ = what->prev_;
+
+			where->prev_->next_ = what;
+			what->prev_ = where->prev_->prev_;
+			where->prev_ = what;
+			what->next_ = where;
+		}
+
+		void splice(const_iterator pos, list& rhs, const_iterator first, const_iterator last) noexcept
+		{
+			splice(pos, std::move(rhs), first, last);
+		}
+
+		void splice(const_iterator pos, list&& rhs, const_iterator first, const_iterator last) noexcept
+		{
+			assert(this != std::addressof(rhs) && "splicing same object");
+			auto begin = first.get_pointer();
+			auto end = last.get_pointer();
+			auto where = pos.get_pointer();
+			assert(rhs.size_ != 0 && "moving from empty container");
+			assert(begin != end && "trying to splice empty range");
+			rhs.range_verify(begin);
+			rhs.range_verify(end);
+
+			size_type range_size = std::distance(first, last);
+			rhs.size_ -= range_size;
+			size_ += range_size;
+
+			unchecked_splice(begin, end, where);
+		}
+
+
+		void remove(const_reference value) noexcept
+		{
+			auto node = head_->next_;
+			while (node != head_)
+			{
+				auto tmp = node->next_;
+				if (node->value_ == value) {
+					node->prev_->next_ = node->next_;
+					node->next_->prev_ = node->prev_;
+					
+					node_type::free_node(allocator_, node);
+					--size_;
+				}
+				node = tmp;
+			} 
+		}
+
+		template <class Predicate>
+		void remove_if(Predicate pred)
+		{
+			auto node = head_->next_;
+			while (node != head_)
+			{
+				auto tmp = node->next_;
+				if (pred(node->value_)) {
+					node->prev_->next_ = node->next_;
+					node->next_->prev_ = node->prev_;
+
+					node_type::free_node(allocator_, node);
+					--size_;
+				}
+				node = tmp;
+			}
+		}
+
+
+		void reverse() noexcept
+		{
+			if (!head_ || size_ == 0) return;
+			auto begin = head_->next_;
+			auto end = head_->prev_;
+
+			size_type i{};
+			auto half_size = size_ / 2;
+			while (i < half_size) {
+				auto first = begin;
+				auto last = end;
+				begin = begin->next_;
+				end = end->prev_;
+
+				last->prev_->next_ = first;
+				last->next_->prev_ = first;
+
+				first->prev_->next_ = last;
+				first->next_->prev_ = last;
+
+				std::swap(first->next_, last->next_);
+				std::swap(last->prev_, first->prev_);
+
+				++i;
+			}
+		}
+
+		void unique() noexcept
+		{
+			auto node = head_->next_;
+			while (node != head_->prev_) {
+				if (node->next_->value_ == node->value_) {
+					auto tmp = node->next_;
+					node->next_ = node->next_->next_;
+					node->next_->prev_ = node;
+					node_type::free_node(allocator_, tmp);
+					--size_;
+				}
+				else {
+					node = node->next_;
+				}
+			}
+		}
+
+		template <class BinaryPredicate>
+		void unique(BinaryPredicate pred)
+		{
+			auto node = head_->next_;
+			while (node != head_->prev_) {
+				if (pred(node->value_, node->next_->value_)) {
+					auto tmp = node->next_;
+					node->next_ = node->next_->next_;
+					node->next_->prev_ = node;
+					node_type::free_node(allocator_, tmp);
+					--size_;
+				}
+				else {
+					node = node->next_;
+				}
+			}
+		}
 	};
+
+
 }
 
 #endif

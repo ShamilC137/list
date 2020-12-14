@@ -83,13 +83,26 @@ struct A {
 	}
 };
 
+struct B {
+	int a;
+};
+
 int main()
 {
-	my_lib::list<A> a{ 1, 3, 5, 7 };
+	my_lib::list<A> a{ 9, 9, 12, 15, 25 };
 	my_lib::list<A> b{ 1,  2, 4 };
-	auto before = a.begin();
-	a.merge(b);
-	auto after = a.begin();
-	std::cout << std::boolalpha << (before == after);
+	my_lib::list<A> c{ 9, 10, 11, 25 };
+	a.merge(c);
+
+	for (auto&& el : a) {
+		std::cout << el << ' ';
+	}
+	std::cout << '\n';
+	std::cout << a.size() << ' ' << c.size() << '\n';
+
+	for (auto&& el : c) {
+		std::cout << el << ' ';
+	}
+	std::cout << '\n';
 	return 0;
 }

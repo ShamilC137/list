@@ -1,37 +1,30 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <ClassDiagram MajorVersion="1" MinorVersion="1">
   <Class Name="my_lib::list_const_iterator&lt;MyList&gt;" Collapsed="true">
-    <Position X="1.5" Y="1.75" Width="1.5" />
+    <Position X="5" Y="1" Width="1.5" />
     <TypeIdentifier>
-      <HashCode>AAAAAAAAAAAAAAAAQgEAAwAAAAIBAAAAAACgIAAAAAA=</HashCode>
+      <HashCode>AABAAAAAAAAAAAAAQgEIAwAAAAIBAAAAAACgIAAAAAA=</HashCode>
       <FileName>list.hpp</FileName>
     </TypeIdentifier>
   </Class>
   <Class Name="my_lib::list_iterator&lt;MyList&gt;" Collapsed="true">
-    <Position X="1.5" Y="3" Width="1.5" />
+    <Position X="5" Y="2.25" Width="1.5" />
     <TypeIdentifier>
       <HashCode>AAAAAAAAAAAAAAAAQAEAAgAAAAAAAAAAAAAgAAAAAAA=</HashCode>
       <FileName>list.hpp</FileName>
     </TypeIdentifier>
   </Class>
-  <Class Name="my_lib::list&lt;T, Alloc&gt;">
-    <Position X="10.75" Y="0.5" Width="3" />
+  <Class Name="my_lib::list&lt;T, Alloc&gt;" Collapsed="true">
+    <Position X="7.5" Y="1" Width="1.5" />
     <TypeIdentifier>
-      <HashCode>AQAAEoACACAEAABAAKAAAABSAAIAAAAAkIAgAgAEAAo=</HashCode>
+      <HashCode>GEAAEqECAHBEoABEAKEYAABSEAJAIpIAkQEkAoAEQgI=</HashCode>
       <FileName>list.hpp</FileName>
     </TypeIdentifier>
   </Class>
   <Struct Name="my_lib::list_node&lt;T, Pointer&gt;" Collapsed="true">
-    <Position X="5.75" Y="3" Width="1.5" />
+    <Position X="7.5" Y="2.25" Width="1.5" />
     <TypeIdentifier>
       <HashCode>AAAABAAAAAAgAAAYIAAgAAAABAAAACAAAAAgAAAAAAA=</HashCode>
-      <FileName>list.hpp</FileName>
-    </TypeIdentifier>
-  </Struct>
-  <Struct Name="my_lib::initializer_tag" Collapsed="true">
-    <Position X="4" Y="3" Width="1.5" />
-    <TypeIdentifier>
-      <HashCode>AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=</HashCode>
       <FileName>list.hpp</FileName>
     </TypeIdentifier>
   </Struct>

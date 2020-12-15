@@ -1262,12 +1262,47 @@ namespace my_lib
 			}
 		}
 
+	private:
+		template <class BinaryPred>
+		nodeptr Sort(nodeptr begin, size_type size, BinaryPred pred)
+		{
+			if (size <= 1) return begin;
+
+			auto mid = size / 2;
+			auto left = begin;
+			auto right = begin;
+			for (size_type j{}; j < mid; ++j) {
+				right = right->next_;
+			}
+
+			left = Sort(left, mid, pred);
+			right = Sort(right, size - mid, pred);
+
+			auto end = right;
+			for (size_type j{}; j < size - mid; ++j) {
+				end = end->next_;
+			}
+
+			auto node = unchecked_merge(left, right, right, end, pred);
+			end->prev_ = node;
+			node->next_ = end;
+
+			// FIXME: That's stupid, but works-_-
+			for (size_type i{}; i < size; ++i) {
+				end = end->prev_;
+			}
+
+			return end; // new begin
+		}
 	public:
 		template <class BinaryPred>
 		void sort(BinaryPred pred)
 		{
-			if (size_ <= 1) return;
+			if (head_) {
+				Sort(head_->next_, size_, pred);
+			}
 		}
+
 	};
 
 	template <class T, class Alloc>

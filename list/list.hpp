@@ -33,7 +33,6 @@ namespace my_lib
 	 * list_const_iterator
 	 * list_iterator 
 	 * list_node
-	 * initializer_tag (for default initialize)
 	 * list 
 	 */
 	
@@ -247,7 +246,7 @@ namespace my_lib
 	{
 		// type aliases
 		using value_type = T;
-		using nodeptr = typename std::pointer_traits<Pointer>::template rebind<list_node>; // I am using the rebind because I cannot know what is will be used as pointer
+		using nodeptr = typename std::pointer_traits<Pointer>::template rebind<list_node>; // I am using the rebind because I cannot know what will be used as pointer
 		// for example, if smone will use unique_ptrs
 
 		// data
@@ -305,12 +304,6 @@ namespace my_lib
 		}
 	};
 
-	/*
-	 * There are no sort() function
-	 * remain:
-	 * ctors
-	 * non - member fns
-	 */
 	// list_node head will store first element(next_) and last element(prev_) 
 	template <class T, class Alloc = std::allocator<T>>
 	class list
@@ -353,12 +346,12 @@ namespace my_lib
 	public:
 		list() noexcept : head_{}, size_{}, allocator_{} {}
 
-		explicit list(const allocator_type& allocator) : head_{}, size_{}, allocator_{ static_cast<node_allocator_type>(allocator) }{}
+		explicit list(const allocator_type& allocator) : head_{}, size_{}, allocator_{ allocator }{}
 
 	private:
 		// helper initialize ctor
 		list(const allocator_type& alloc,
-			size_type size) : allocator_{ static_cast<node_allocator_type>(alloc) },
+			size_type size) : allocator_{ alloc },
 			head_{ node_type::create_head(allocator_) },
 			size_{ size }	{ }
 

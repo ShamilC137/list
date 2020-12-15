@@ -33,7 +33,6 @@ namespace my_lib
 	 * list_const_iterator
 	 * list_iterator 
 	 * list_node
-	 * initializer_tag (for default initialize)
 	 * list 
 	 */
 	
@@ -305,12 +304,6 @@ namespace my_lib
 		}
 	};
 
-	/*
-	 * There are no sort() function
-	 * remain:
-	 * ctors
-	 * non - member fns
-	 */
 	// list_node head will store first element(next_) and last element(prev_) 
 	template <class T, class Alloc = std::allocator<T>>
 	class list

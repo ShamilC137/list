@@ -83,26 +83,15 @@ struct A {
 	}
 };
 
-struct B {
-	int a;
-};
-
 int main()
 {
-	my_lib::list<A> a{ 9, 9, 12, 15, 25 };
-	my_lib::list<A> b{ 1,  2, 4 };
-	my_lib::list<A> c{ 9, 10, 11, 25 };
-	a.merge(c);
-
+	my_lib::list<A> a{ 1, 5, 3, 6, 4, 5, 1, 0 };;	
+	auto pred = [](const A& lhs, const A& rhs) {return lhs < rhs; };
+	a.sort(pred);
 	for (auto&& el : a) {
 		std::cout << el << ' ';
 	}
 	std::cout << '\n';
-	std::cout << a.size() << ' ' << c.size() << '\n';
-
-	for (auto&& el : c) {
-		std::cout << el << ' ';
-	}
-	std::cout << '\n';
+	std::cout << a.size() << '\n';
 	return 0;
 }

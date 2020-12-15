@@ -353,12 +353,22 @@ namespace my_lib
 	public:
 		list() noexcept : head_{}, size_{}, allocator_{} {}
 
+		explicit list(const allocator_type& allocator) : head_{}, size_{}, allocator_{ static_cast<node_allocator_type>(allocator) }{}
+
 	private:
 		// helper initialize ctor
 		list(const allocator_type& alloc,
 			size_type size) : allocator_{ static_cast<node_allocator_type>(alloc) },
 			head_{ node_type::create_head(allocator_) },
 			size_{ size }	{ }
+
+	public:
+		explicit list(size_type count, const allocator_type& allocator = allocator_type{}) : list(allocator, count)
+		{
+			for (size_type i{}; i < count; ++i) {
+				emplace_back();
+			}
+		}
 
 	private:
 		template <class Iter>
@@ -432,6 +442,35 @@ namespace my_lib
 		}
 
 	public:
+		explicit list(size_type count,
+			const_reference value = value_type{},
+			const allocator_type allocator = allocator_type{}) : list(allocator, count)
+		{
+			construct_n_copies(count, value, head_);
+		}
+
+
+		template <class Iter, std::enable_if_t<is_iterator<Iter>::value, int> = 0>
+		list(Iter first, Iter last, const allocator_type& allocator = allocator_type{}) : list(allocator, std::distance(first, last))
+		{
+			construct_range(first, last, head_);
+		}
+
+		list(const list& rhs) : list(std::allocator_traits<allocator_type>::select_on_container_copy_construction(rhs.allocator_), rhs.size_)
+		{
+			construct_range(rhs.head_->next_, rhs.head_, head_);
+		}
+
+		list(const list& rhs, const allocator_type& allocator) : list(allocator, rhs.size_)
+		{
+			construct_range(rhs.head_->next_, rhs.head_, head_);
+		}
+
+		list(list&& rhs) : allocator_{ std::move(rhs.allocator_) }, head_{node_type::create_head(allocator_)}, size_{rhs.size_}
+		{
+			this->operator=(std::move(rhs));
+		}
+
 		list(std::initializer_list<value_type> list, 
 			 const allocator_type& allocator = allocator_type{}) : list(allocator, list.size())
 		{
@@ -462,6 +501,7 @@ namespace my_lib
 	public:
 		list& operator=(const list& rhs)
 		{
+			if (this == std::addressof(rhs)) return *this;
 			auto rhs_size	= rhs.size_;
 			auto rhs_head	= rhs.head_;
 			auto rhs_node	= rhs_head->next_;
@@ -490,25 +530,43 @@ namespace my_lib
 			return *this;
 		}
 
-		list& operator=(list&& rhs) 
+	private:
+		void move_range_construct(nodeptr first, nodeptr last, nodeptr where)
 		{
+			while (first != last) {
+				auto node = allocator_.allocate(1);
+				node_allocator_traits::construct(allocator_, node, where->next_, where, std::move(first->value_));
+				where->next_->prev_ = node;
+				where->next_ = node;
+				where = node;
+				first = first->next_;
+			}
+		}
+
+	public:
+		// FIXME: may cause problems
+		list& operator=(list&& rhs)
+		{
+			if (this == std::addressof(rhs)) return *this;
+
 			if (allocator_ == rhs.allocator_) {
 				tidy();
-				head_		= std::move(rhs.head_); // is it reasonable?
-				rhs.head_	= nullptr;
-				size_		= rhs.size_;
+				head_ = node_type::create_head(allocator_);
+				std::swap(head_, rhs.head_);
+				size_		= rhs.size_;0;
 			}
 			else if (list_allocator_traits::propagate_on_container_move_assignment::value) {
 				tidy(); // use old allocator to free the storage
 				allocator_	= std::move(rhs.allocator_);
 				head_		= node_type::create_head(allocator_);
 				size_		= rhs.size_;
-				construct_range(rhs.head_->next_, rhs.head_, head_); // copy all elements from rhs
+				move_range_construct(rhs.head_->next_, rhs.head_, head_); // move all elements from rhs
 			}
 			else {
 				assign(rhs.begin(), rhs.end());
 			}
-
+			rhs.size_ = 0;
+	
 			return *this;
 		}
 
@@ -634,11 +692,13 @@ namespace my_lib
 	public:
 		[[nodiscard]] iterator begin() noexcept
 		{
-			return iterator(this, head_->next_);
+			assert(head_ && "empty container");
+				return iterator(this, head_->next_);
 		}
 
 		[[nodiscard]] const_iterator begin() const noexcept
 		{
+			assert(head_ && "empty container");
 			return const_iterator(this, head_->next_);
 		}
 
@@ -946,10 +1006,10 @@ namespace my_lib
 		}
 
 	public:
-		// FIXME: unstable. I'm too lazy to fix this
 		template <class Cmp = std::less<value_type>>
 		void merge(list& rhs, Cmp cmp = Cmp{})
 		{
+			if (this == std::addressof(rhs)) return;
 			merge(std::move(rhs), cmp);
 		}
 
@@ -968,6 +1028,7 @@ namespace my_lib
 			return true;
 		}
 
+		//FIXME: unchecked
 		template <class Cmp>
 		nodeptr unchecked_merge(nodeptr lhsfirst, nodeptr lhslast, nodeptr rhsfirst, nodeptr rhslast, Cmp cmp) noexcept
 		{
@@ -1003,6 +1064,7 @@ namespace my_lib
 
 			return node;
 		}
+
 	public:
 		template <class Cmp = std::less<value_type>>
 		void merge(list&& rhs, Cmp cmp = Cmp{})
@@ -1199,9 +1261,88 @@ namespace my_lib
 				}
 			}
 		}
+
+	public:
+		template <class BinaryPred>
+		void sort(BinaryPred pred)
+		{
+			if (size_ <= 1) return;
+		}
 	};
 
+	template <class T, class Alloc>
+	[[nodiscard]] bool operator==(const list<T, Alloc>& lhs, const list<T, Alloc>& rhs) noexcept
+	{
+		if (std::addressof(rhs) == std::addressof(lhs)) return true;
+		auto lhssize = lhs.size();
+		auto rhssize = rhs.size();
+		if (lhssize != rhssize) return false;
 
+		auto lhsnode = lhs.begin().get_pointer();
+		auto rhsnode = rhs.begin().get_pointer();
+		for (std::size_t i{}; i < lhssize; ++i) {
+			if (!(lhsnode->value_ == rhsnode->value_))
+			{
+				return false;
+			}
+			rhsnode = rhsnode->next_;
+			lhsnode = lhsnode->next_;
+		}
+		return true;
+	}
+
+	template <class T, class Alloc>
+	[[nodiscard]] bool operator!=(const list<T, Alloc>& lhs, const list<T, Alloc>& rhs) noexcept
+	{
+		return !(lhs == rhs);
+	}
+
+	template <class T, class Alloc>
+	[[nodiscard]] bool operator<(const list<T, Alloc>& lhs, const list<T, Alloc>& rhs) noexcept
+	{
+		if (std::addressof(rhs) == std::addressof(lhs)) return true;
+		auto lhssize = lhs.size();
+		auto rhssize = rhs.size();
+		if (lhssize != rhssize) return false;
+
+		auto lhsnode = lhs.begin().get_pointer();
+		auto rhsnode = rhs.begin().get_pointer();
+		for (std::size_t i{}; i < lhssize; ++i) {
+			if ( rhsnode->value_ < lhsnode->value_)
+			{
+				return false;
+			}
+			rhsnode = rhsnode->next_;
+			lhsnode = lhsnode->next_;
+		}
+		return true;
+	}
+
+	template <class T, class Alloc>
+	[[nodiscard]] bool operator>(const list<T, Alloc>& lhs, const list<T, Alloc>& rhs) noexcept
+	{
+		return rhs < lhs;
+	}
+
+	template <class T, class Alloc>
+	[[nodiscard]] bool operator<=(const list<T, Alloc>& lhs, const list<T, Alloc>& rhs) noexcept
+	{
+		return !(rhs < lhs);
+	}
+
+	template <class T, class Alloc>
+	[[nodiscard]] bool operator>=(const list<T, Alloc>& lhs, const list<T, Alloc>& rhs) noexcept
+	{
+		return !(lhs < rhs);
+	}
+}
+
+namespace std {
+	template <class T, class Alloc>
+	void swap(my_lib::list<T, Alloc>& lhs, my_lib::list<T, Alloc>& rhs) noexcept(lhs.swap(rhs))
+	{
+		lhs.swap(rhs);
+	}
 }
 
 #endif

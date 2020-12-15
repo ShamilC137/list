@@ -542,11 +542,12 @@ namespace my_lib
 		{
 			if (this == std::addressof(rhs)) return *this;
 
-			if (allocator_ == rhs.allocator_) {
-				tidy();
-				head_ = node_type::create_head(allocator_);
+			if (allocator_ == rhs.allocator_)	 {
+				if (head_) {
+					erase_range(head_->next_, head_);
+				}
 				std::swap(head_, rhs.head_);
-				size_		= rhs.size_;0;
+				size_		= rhs.size_;
 			}
 			else if (list_allocator_traits::propagate_on_container_move_assignment::value) {
 				tidy(); // use old allocator to free the storage
@@ -563,32 +564,9 @@ namespace my_lib
 			return *this;
 		}
 
-		// FIXME: same code as operator= (list)
 		list& operator=(std::initializer_list<T> ilist) 
 		{
-			auto ilbeg = ilist.begin();
-			auto ilsize = ilist.size();
-			if (size_ == 0) {
-				construct_range(ilbeg, ilist.end(), head_);
-			}
-			if (auto node = head_->next_;  size_ <= ilsize) {
-				for (; node != head_; node = node->next_) {
-					node->value_ = *(ilbeg++);
-				}
-
-				if (size_ < ilsize) {
-					construct_range(ilbeg, ilist.end(), head_);
-				}
-			}
-			else {
-				for (size_type i{}; i < ilsize; ++i, node = node->next_) {
-					node->value_ = *(ilbeg++);
-				}
-
-				erase_range(node, head_);
-			}
-
-			size_ = ilsize;
+			assign(ilist.begin(), ilist.end());
 
 			return *this;
 		}
@@ -647,7 +625,7 @@ namespace my_lib
 
 		void assign(std::initializer_list<T> ilist)
 		{
-			*this = ilist;
+			assign(ilist.begin(), ilist.end());
 		}
 		
 		[[nodiscard]] allocator_type get_allocator() const noexcept

@@ -1295,8 +1295,8 @@ namespace my_lib
 			return end; // new begin
 		}
 	public:
-		template <class BinaryPred>
-		void sort(BinaryPred pred)
+		template <class BinaryPred = std::less<value_type>>
+		void sort(BinaryPred pred = BinaryPred{})
 		{
 			if (head_) {
 				Sort(head_->next_, size_, pred);

@@ -3,6 +3,6 @@
 
 int main()
 {
-	my_lib::list<int> list;
+	my_lib::list<int> list(1);
 	return 0;
 }

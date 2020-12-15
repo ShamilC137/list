@@ -443,7 +443,7 @@ namespace my_lib
 
 	public:
 		explicit list(size_type count,
-			const_reference value = value_type{},
+			const_reference value,
 			const allocator_type allocator = allocator_type{}) : list(allocator, count)
 		{
 			construct_n_copies(count, value, head_);

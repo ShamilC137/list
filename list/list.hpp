@@ -346,12 +346,12 @@ namespace my_lib
 	public:
 		list() noexcept : head_{}, size_{}, allocator_{} {}
 
-		explicit list(const allocator_type& allocator) : head_{}, size_{}, allocator_{ static_cast<node_allocator_type>(allocator) }{}
+		explicit list(const allocator_type& allocator) : head_{}, size_{}, allocator_{ allocator }{}
 
 	private:
 		// helper initialize ctor
 		list(const allocator_type& alloc,
-			size_type size) : allocator_{ static_cast<node_allocator_type>(alloc) },
+			size_type size) : allocator_{ alloc },
 			head_{ node_type::create_head(allocator_) },
 			size_{ size }	{ }
 

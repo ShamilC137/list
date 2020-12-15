@@ -246,7 +246,7 @@ namespace my_lib
 	{
 		// type aliases
 		using value_type = T;
-		using nodeptr = typename std::pointer_traits<Pointer>::template rebind<list_node>; // I am using the rebind because I cannot know what is will be used as pointer
+		using nodeptr = typename std::pointer_traits<Pointer>::template rebind<list_node>; // I am using the rebind because I cannot know what will be used as pointer
 		// for example, if smone will use unique_ptrs
 
 		// data

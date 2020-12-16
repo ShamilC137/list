@@ -391,19 +391,23 @@ namespace my_lib
 		void construct_range(nodeptr first, const nodeptr last, nodeptr where)
 		{
 			if (first == last) return;
+			
+			auto node = allocator_.allocate(1);
+			node_allocator_traits::construct(allocator_, node, nullptr, where, first->value_);
+			auto copy = node;
+			first = first->next_;
 
-			size_type count = std::distance(first, last);
-
-			size_type i{};
-			nodeptr node{};
-			while (i++ < count) {
-				node = allocator_.allocate(1);
-				node_allocator_traits::construct(allocator_, node, where->next_, where, *first);
-				where->next_ = node;
-				where = node;
-				++first;
+			while (first != last) {
+				auto newnode = allocator_.allocate(1);
+				node_allocator_traits::construct(allocator_, newnode, nullptr, node, first->value_);
+				first = first->next_;
+				node->next_ = newnode;
+				node = node->next_;
 			}
+
+			node->next_ = where->next_;
 			where->next_->prev_ = node;
+			where->next_ = copy;
 		}
 
 		void construct_n_copies(size_type count, const_reference value, nodeptr where)

@@ -395,7 +395,6 @@ namespace my_lib
 			size_type count = std::distance(first, last);
 
 			size_type i{};
-			auto next = where->next_;
 			nodeptr node{};
 			while (i++ < count) {
 				node = allocator_.allocate(1);
@@ -404,7 +403,7 @@ namespace my_lib
 				where = node;
 				++first;
 			}
-			next->prev_ = node;
+			where->next_->prev_ = node;
 		}
 
 		void construct_n_copies(size_type count, const_reference value, nodeptr where)

@@ -1086,11 +1086,11 @@ namespace my_lib
 
 		void splice(const_iterator pos, list&& rhs, const_iterator it)
 		{
-			assert(this != std::addressof(rhs) && "splicing the same object");
 			auto where = pos.get_pointer();
 			auto what = it.get_pointer();
+			range_verify(where);
 			assert(what != rhs.head_ && "cannot move rhs head");
-			assert(rhs.size_ != 0 && "moving from empty container");
+			if (rhs.size_ == 0) return;
 			rhs.range_verify(what);
 
 			++size_;
@@ -1112,11 +1112,11 @@ namespace my_lib
 
 		void splice(const_iterator pos, list&& rhs, const_iterator first, const_iterator last) noexcept
 		{
-			assert(this != std::addressof(rhs) && "splicing same object");
 			auto begin = first.get_pointer();
 			auto end = last.get_pointer();
 			auto where = pos.get_pointer();
-			assert(rhs.size_ != 0 && "moving from empty container");
+			range_verify(where);
+			if (rhs.size_ == 0) return;
 			assert(begin != end && "trying to splice empty range");
 			rhs.range_verify(begin);
 			rhs.range_verify(end);
@@ -1339,7 +1339,7 @@ namespace my_lib
 
 namespace std {
 	template <class T, class Alloc>
-	void swap(my_lib::list<T, Alloc>& lhs, my_lib::list<T, Alloc>& rhs) noexcept(lhs.swap(rhs))
+	void swap(my_lib::list<T, Alloc>& lhs, my_lib::list<T, Alloc>& rhs) noexcept(noexcept(lhs.swap(rhs)))
 	{
 		lhs.swap(rhs);
 	}

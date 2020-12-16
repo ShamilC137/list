@@ -355,7 +355,7 @@ namespace my_lib
 			size_{ size }	{ }
 
 	public:
-		explicit list(size_type count, const allocator_type& allocator = allocator_type{}) : list(allocator, count)
+		explicit list(size_type count, const allocator_type& allocator = allocator_type{}) : list(allocator, 0)
 		{
 			for (size_type i{}; i < count; ++i) {
 				emplace_back();
@@ -383,15 +383,19 @@ namespace my_lib
 			if (first == last) return;
 
 			size_type count = std::distance(first, last);
-			size_type i{};
+			auto node = allocator_.allocate(1);
+			node_allocator_traits::construct(allocator_, node, where->next_, where, *first);
+			where->next_ = node;
+			++first;
+			size_type i{1};
 			while (i++ < count) {
-				auto node = allocator_.allocate(1);
-				node_allocator_traits::construct(allocator_, node, where->next_, where, *first);
-				where->next_->prev_ = node;
-				where->next_ = node;
-				where = node;
+				auto newnode = allocator_.allocate(1);
+				node_allocator_traits::construct(allocator_, newnode, node->next_, node, *first);
+				node->next_ = newnode;
+				node = node->next_;
 				++first;
 			}
+			node->next_->prev_ = node;
 		}
 
 		void construct_range(iterator first, iterator last, nodeptr where)
@@ -472,7 +476,7 @@ namespace my_lib
 	private:
 		void tidy() noexcept
 		{
-			if (head_ != nullptr) {
+			if (head_) {
 				if (size_ != 0) {
 					node_type::free_all_nonhead(allocator_, head_);
 					node_type::free_without_value(allocator_, head_);
@@ -570,7 +574,7 @@ namespace my_lib
 			return *this;
 		}
 
-		template <class Iter, std::enable_if_t<is_iterator<Iter>::value, int> = 0>
+		template <class Iter, std::enable_if_t<is_iterator<Iter>::value || std::is_pointer<Iter>::value, int> = 0>
 		void assign(Iter first, const Iter last)
 		{
 			size_type new_size = std::distance(first, last);
@@ -797,9 +801,9 @@ namespace my_lib
 			auto where = pos.get_pointer();
 			range_verify(where);
 
+			size_ += std::distance(first, last);
 			auto node = where->prev_;
 			construct_range(first, last, node);
-			size_ += std::distance(first, last);
 			return iterator{ this, node->next_ };
 		}
 

@@ -383,16 +383,19 @@ namespace my_lib
 			if (first == last) return;
 
 			size_type count = std::distance(first, last);
-
-			size_type i{};
+			auto node = allocator_.allocate(1);
+			node_allocator_traits::construct(allocator_, node, where->next_, where, *first);
+			where->next_ = node;
+			++first;
+			size_type i{1};
 			while (i++ < count) {
-				auto node = allocator_.allocate(1);
-				node_allocator_traits::construct(allocator_, node, where->next_, where, *first);
-				where->next_ = node;
-				where = where->next_;
+				auto newnode = allocator_.allocate(1);
+				node_allocator_traits::construct(allocator_, newnode, node->next_, node, *first);
+				node->next_ = newnode;
+				node = node->next_;
 				++first;
 			}
-			where->next_->prev_ = where;
+			node->next_->prev_ = node;
 		}
 
 		void construct_range(iterator first, iterator last, nodeptr where)

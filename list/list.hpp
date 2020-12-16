@@ -398,8 +398,8 @@ namespace my_lib
 			nodeptr node{};
 			while (i++ < count) {
 				node = allocator_.allocate(1);
-				node_allocator_traits::construct(allocator_, node, where->next, where, *first);
-				where->next = node;
+				node_allocator_traits::construct(allocator_, node, where->next_, where, *first);
+				where->next_ = node;
 				where = node;
 				++first;
 			}

@@ -3,6 +3,8 @@
 
 int main()
 {
-	my_lib::list<int> list(1);
+	std::allocator<char> alloc;
+	my_lib::list<int> list(alloc);
+	my_lib::list<int> list2(list);
 	return 0;
 }

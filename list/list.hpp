@@ -309,44 +309,44 @@ namespace my_lib
 	class list
 	{
 		friend list_const_iterator<list<T, Alloc>>;
-	// type aliases
+		// type aliases
 	public:
 		// value type aliases
-		using value_type				= T;
-		using pointer					= T*;
-		using const_pointer				= const T*;
-		using reference					= T&;
-		using const_reference			= const T&;
-		using size_type					= std::size_t;
-		using difference_type			= std::ptrdiff_t;
+		using value_type = T;
+		using pointer = T*;
+		using const_pointer = const T*;
+		using reference = T&;
+		using const_reference = const T&;
+		using size_type = std::size_t;
+		using difference_type = std::ptrdiff_t;
 
 		// allocator types aliases and node pointer aliases
-		using allocator_type			= Alloc;
-		using list_allocator			= typename std::allocator_traits<Alloc>::template rebind_alloc<T>;
-		using list_allocator_traits		= std::allocator_traits<list_allocator>;
-		using node_allocator_type		= typename std::allocator_traits<Alloc>::template rebind_alloc<list_node<T, typename std::allocator_traits<Alloc>::void_pointer>>;
-		using node_allocator_traits		= std::allocator_traits<node_allocator_type>;
-		using node_type					= list_node<T, typename node_allocator_traits::void_pointer>;
-		using nodeptr					= typename node_allocator_traits::pointer;
+		using allocator_type = Alloc;
+		using list_allocator = typename std::allocator_traits<Alloc>::template rebind_alloc<T>;
+		using list_allocator_traits = std::allocator_traits<list_allocator>;
+		using node_allocator_type = typename std::allocator_traits<Alloc>::template rebind_alloc<list_node<T, typename std::allocator_traits<Alloc>::void_pointer>>;
+		using node_allocator_traits = std::allocator_traits<node_allocator_type>;
+		using node_type = list_node<T, typename node_allocator_traits::void_pointer>;
+		using nodeptr = typename node_allocator_traits::pointer;
 
 		// iterator aliases
-		using iterator					= list_iterator<list<T, Alloc>>;
-		using const_iterator			= list_const_iterator<list<T, Alloc>>;
+		using iterator = list_iterator<list<T, Alloc>>;
+		using const_iterator = list_const_iterator<list<T, Alloc>>;
 
-		using reverse_iterator			= std::reverse_iterator<iterator>;
-		using const_reverse_iterator	= std::reverse_iterator<const_iterator>;
+		using reverse_iterator = std::reverse_iterator<iterator>;
+		using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
-	// list data
+		// list data
 	private:
 		node_allocator_type allocator_;
 		nodeptr head_;
 		size_type size_;
 
-	// Ctors and dtor
+		// Ctors and dtor
 	public:
-		list() noexcept : head_{}, size_{}, allocator_{} {}
+		list() noexcept : list(allocator_type{}, 0) {}
 
-		explicit list(const allocator_type& allocator) : head_{}, size_{}, allocator_{ allocator }{}
+		explicit list(const allocator_type& allocator) : list(allocator, 0){}
 
 	private:
 		// helper initialize ctor
@@ -663,13 +663,11 @@ namespace my_lib
 	public:
 		[[nodiscard]] iterator begin() noexcept
 		{
-			assert(head_ && "empty container");
-				return iterator(this, head_->next_);
+			return iterator(this, head_->next_);
 		}
 
 		[[nodiscard]] const_iterator begin() const noexcept
 		{
-			assert(head_ && "empty container");
 			return const_iterator(this, head_->next_);
 		}
 

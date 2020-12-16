@@ -240,7 +240,6 @@ namespace my_lib
 		using mybase::operator!=;
 	};
 
-	// FIXME: try me bitch
 	template <class T, class Pointer>
 	struct list_node
 	{

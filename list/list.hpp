@@ -380,6 +380,16 @@ namespace my_lib
 
 		void construct_range(const_iterator first, const_iterator last, nodeptr where)
 		{
+			construct_range(first.get_pointer(), last.get_pointer(), where);
+		}
+
+		void construct_range(iterator first, iterator last, nodeptr where)
+		{
+			construct_range(static_cast<const_iterator>(first), last, where);
+		}
+
+		void construct_range(nodeptr first, const nodeptr last, nodeptr where)
+		{
 			if (first == last) return;
 
 			size_type count = std::distance(first, last);
@@ -393,25 +403,6 @@ namespace my_lib
 				++first;
 			}
 			where->next_->prev_ = node;
-		}
-
-		void construct_range(iterator first, iterator last, nodeptr where)
-		{
-			construct_range(static_cast<const_iterator>(first), last, where);
-		}
-
-		void construct_range(nodeptr first, const nodeptr last, nodeptr where)
-		{
-			if (first == last) return;
-
-			while (first != last) {
-				auto node = allocator_.allocate(1);
-				node_allocator_traits::construct(allocator_, node, where->next_, where, first->value_);
-				where->next_->prev_ = node;
-				where->next_ = node;
-				where = node;
-				first = first->next_;
-			}
 		}
 
 		void construct_n_copies(size_type count, const_reference value, nodeptr where)

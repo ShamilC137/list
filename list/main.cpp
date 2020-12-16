@@ -5,7 +5,7 @@
 int main()
 {
 	std::list<int> list{ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 };
-	list.insert(++++++list.begin(), ++++list.begin(), list.end());
+	list.insert(list.end(), ++++list.begin(), list.end());
 	
 	for (auto&& el : list) {
 		std::cout << el << ' ';

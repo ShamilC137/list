@@ -400,6 +400,7 @@ namespace my_lib
 			while (i++ < count) {
 				node = allocator_.allocate(1);
 				node_allocator_traits::construct(allocator_, node, where->next, where, *first);
+				where->next = node;
 				where = node;
 				++first;
 			}
